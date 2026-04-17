@@ -1,22 +1,22 @@
 const express = require("express");
-const fs = require("fs");
-const path = require("path");
+const { MongoClient } = require("mongodb");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, "mocks.json");
+const MONGO_URI = process.env.MONGO_URI;
+const DB_NAME = "ds-qa-mock";
+const COLLECTION = "mocks";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function readDB() {
-  if (!fs.existsSync(DB_FILE)) fs.writeFileSync(DB_FILE, "{}");
-  return JSON.parse(fs.readFileSync(DB_FILE, "utf8"));
+let db;
+async function connectDB() {
+  const client = new MongoClient(MONGO_URI);
+  await client.connect();
+  db = client.db(DB_NAME);
+  console.log("✅ MongoDB connected");
 }
 
-function writeDB(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
+const col = () => db.collection(COLLECTION);
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -27,81 +27,63 @@ app.use((req, res, next) => {
   next();
 });
 
-// ─── 1. iOS App endpoint ──────────────────────────────────────────────────────
-// GET /notifications/:id/app-data
-app.get("/notifications/:id/app-data", (req, res) => {
+// GET /notifications/:id/app-data  ← iOS app calls this
+app.get("/notifications/:id/app-data", async (req, res) => {
   const { id } = req.params;
-  const db = readDB();
-
-  if (!db[id]) {
-    return res.status(404).json({
-      error: "No mock found",
-      notification_id: id,
-      hint: "Create a mock via POST /mocks",
-    });
+  const mock = await col().findOne({ notificationId: id });
+  if (!mock) {
+    return res.status(404).json({ error: "No mock found", notification_id: id, hint: "Create a mock via POST /mocks" });
   }
-
-  // Log hit
-  db[id].hits = db[id].hits || [];
-  db[id].hits.unshift({ ts: new Date().toISOString() });
-  db[id].hits = db[id].hits.slice(0, 50); // keep last 50
-  writeDB(db);
-
-  return res.status(200).json(db[id].response);
+  await col().updateOne(
+    { notificationId: id },
+    { $push: { hits: { $each: [{ ts: new Date().toISOString() }], $position: 0, $slice: 50 } } }
+  );
+  return res.status(200).json(mock.response);
 });
 
-// ─── 2. List all mocks ────────────────────────────────────────────────────────
 // GET /mocks
-app.get("/mocks", (req, res) => {
-  const db = readDB();
-  const mocks = Object.entries(db).map(([id, val]) => ({ notificationId: id, ...val }));
+app.get("/mocks", async (req, res) => {
+  const mocks = await col().find({}, { projection: { _id: 0 } }).sort({ updatedAt: -1 }).toArray();
   res.json(mocks);
 });
 
-// ─── 3. Create / Update mock ──────────────────────────────────────────────────
 // POST /mocks
-// Body: { notificationId, label, notifTitle, notifBody, response: {} }
-app.post("/mocks", (req, res) => {
+app.post("/mocks", async (req, res) => {
   const { notificationId, label, notifTitle, notifBody, response } = req.body;
-
   if (!notificationId || !response) {
     return res.status(400).json({ error: "notificationId and response are required" });
   }
-
-  const db = readDB();
-  db[notificationId] = {
-    notificationId,
-    label: label || "",
-    notifTitle: notifTitle || "QA Test Push",
-    notifBody: notifBody || "Tap to open",
-    response,
-    updatedAt: new Date().toISOString(),
-    hits: db[notificationId]?.hits || [],
-  };
-  writeDB(db);
-
+  await col().updateOne(
+    { notificationId },
+    {
+      $set: { notificationId, label: label || "", notifTitle: notifTitle || "QA Test Push", notifBody: notifBody || "Tap to open", response, updatedAt: new Date().toISOString() },
+      $setOnInsert: { hits: [] },
+    },
+    { upsert: true }
+  );
   res.json({ ok: true, notificationId });
 });
 
-// ─── 4. Delete mock ───────────────────────────────────────────────────────────
 // DELETE /mocks/:id
-app.delete("/mocks/:id", (req, res) => {
-  const db = readDB();
-  if (!db[req.params.id]) return res.status(404).json({ error: "Not found" });
-  delete db[req.params.id];
-  writeDB(db);
+app.delete("/mocks/:id", async (req, res) => {
+  const result = await col().deleteOne({ notificationId: req.params.id });
+  if (result.deletedCount === 0) return res.status(404).json({ error: "Not found" });
   res.json({ ok: true, deleted: req.params.id });
 });
 
-// ─── 5. Hit log ───────────────────────────────────────────────────────────────
 // GET /mocks/:id/hits
-app.get("/mocks/:id/hits", (req, res) => {
-  const db = readDB();
-  if (!db[req.params.id]) return res.status(404).json({ error: "Not found" });
-  res.json(db[req.params.id].hits || []);
+app.get("/mocks/:id/hits", async (req, res) => {
+  const mock = await col().findOne({ notificationId: req.params.id }, { projection: { hits: 1 } });
+  if (!mock) return res.status(404).json({ error: "Not found" });
+  res.json(mock.hits || []);
 });
 
-// ─── Health check ─────────────────────────────────────────────────────────────
-app.get("/", (req, res) => res.json({ status: "ok", mocks: Object.keys(readDB()).length }));
+// GET /
+app.get("/", async (req, res) => {
+  const count = await col().countDocuments();
+  res.json({ status: "ok", mocks: count });
+});
 
-app.listen(PORT, () => console.log(`DS QA Mock Server running on port ${PORT}`));
+connectDB()
+  .then(() => app.listen(PORT, () => console.log(`DS QA Mock Server running on port ${PORT}`)))
+  .catch((err) => { console.error("MongoDB connection failed:", err); process.exit(1); });

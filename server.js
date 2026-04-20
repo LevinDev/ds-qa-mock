@@ -32,7 +32,7 @@ app.get("/notifications/:id/app-data", async (req, res) => {
   const { id } = req.params;
   const mock = await col().findOne({ notificationId: id });
   if (!mock) {
-    return res.status(404).json({ error: "No mock found", notification_id: id, hint: "Create a mock via POST /mocks" });
+    return res.status(404).json({ error: "No mock found", pushNotificationId: id, hint: "Create a mock via POST /mocks" });
   }
   await col().updateOne(
     { notificationId: id },

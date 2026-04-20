@@ -1,0 +1,217 @@
+{
+  "info": {
+    "name": "DS QA Mock Tool",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Complete QA workflow: manage mocks + send FCM push notifications"
+  },
+  "variable": [
+    { "key": "mockServerUrl", "value": "https://ds-qa-mock.onrender.com", "type": "string" },
+    { "key": "fcmProjectId",  "value": "digitalsharjah-f910d", "type": "string" },
+    { "key": "deviceToken",   "value": "YOUR_DEVICE_FCM_TOKEN", "type": "string" },
+    { "key": "accessToken",   "value": "", "type": "string", "description": "Run: gcloud auth print-access-token" }
+  ],
+  "item": [
+    {
+      "name": "🗂 Mock Management",
+      "item": [
+        {
+          "name": "List All Mocks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mockServerUrl}}/mocks", "host": ["{{mockServerUrl}}"], "path": ["mocks"] },
+            "description": "Returns all saved mocks"
+          },
+          "response": []
+        },
+        {
+          "name": "Add Mock — PAY_ALL (notif 100)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{mockServerUrl}}/mocks", "host": ["{{mockServerUrl}}"], "path": ["mocks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationId\": \"100\",\n  \"label\": \"Pay All Page\",\n  \"notifTitle\": \"QA Test Push\",\n  \"notifBody\": \"Tap to open\",\n  \"response\": {\n    \"data\": {\n      \"module\": \"CUSTOM\",\n      \"moduleNAME\": \"PAY_ALL\",\n      \"serviceCode\": \"74\"\n    },\n    \"statusCode\": 200\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "CUSTOM module — navigates to Pay All page with serviceCode 74"
+          },
+          "response": [
+            {
+              "name": "Success", "status": "OK", "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"ok\":true,\"notificationId\":\"100\"}"
+            }
+          ]
+        },
+        {
+          "name": "Add Mock — SERVICE_NAVIGATE (notif 101)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{mockServerUrl}}/mocks", "host": ["{{mockServerUrl}}"], "path": ["mocks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notificationId\": \"101\",\n  \"label\": \"Pay Public Parking Fees\",\n  \"notifTitle\": \"QA Test Push\",\n  \"notifBody\": \"Tap to open\",\n  \"response\": {\n    \"data\": {\n      \"module\": \"SERVICE\",\n      \"moduleNAME\": \"SERVICE_NAVIGATE\",\n      \"catalogId\": \"2\",\n      \"serviceId\": \"32\",\n      \"entityCode\": \"MU-002\",\n      \"entryPoint\": \"categories\",\n      \"serviceLabelEn\": \"Pay Public Parking Fees\",\n      \"serviceLabelAR\": \"\\u062f\\u0641\\u0639 \\u0631\\u0633\\u0648\\u0645 \\u0627\\u0644\\u0645\\u0648\\u0627\\u0642\\u0641 \\u0627\\u0644\\u0639\\u0627\\u0645\\u0629\"\n    },\n    \"statusCode\": 200\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "SERVICE module — navigates to Pay Public Parking Fees (catalogId 2, serviceId 32, entityCode MU-002)"
+          },
+          "response": [
+            {
+              "name": "Success", "status": "OK", "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"ok\":true,\"notificationId\":\"101\"}"
+            }
+          ]
+        },
+        {
+          "name": "Delete Mock",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{mockServerUrl}}/mocks/100", "host": ["{{mockServerUrl}}"], "path": ["mocks", "100"] },
+            "description": "Change 100 to the notification ID you want to delete"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Hit Log",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mockServerUrl}}/mocks/100/hits", "host": ["{{mockServerUrl}}"], "path": ["mocks", "100", "hits"] },
+            "description": "See every time iOS app called this notification ID. Change 100 to any ID."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "📱 iOS App Simulation",
+      "item": [
+        {
+          "name": "GET App Data — PAY_ALL (notif 100)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mockServerUrl}}/notifications/100/app-data", "host": ["{{mockServerUrl}}"], "path": ["notifications", "100", "app-data"] },
+            "description": "Simulates what iOS calls after receiving push with pushNotificationId=100"
+          },
+          "response": [
+            {
+              "name": "PAY_ALL Response", "status": "OK", "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"data\":{\"module\":\"CUSTOM\",\"moduleNAME\":\"PAY_ALL\",\"serviceCode\":\"74\"},\"statusCode\":200}"
+            }
+          ]
+        },
+        {
+          "name": "GET App Data — SERVICE_NAVIGATE (notif 101)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{mockServerUrl}}/notifications/101/app-data", "host": ["{{mockServerUrl}}"], "path": ["notifications", "101", "app-data"] },
+            "description": "Simulates what iOS calls after receiving push with pushNotificationId=101"
+          },
+          "response": [
+            {
+              "name": "SERVICE_NAVIGATE Response", "status": "OK", "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\"data\":{\"module\":\"SERVICE\",\"moduleNAME\":\"SERVICE_NAVIGATE\",\"catalogId\":\"2\",\"serviceId\":\"32\",\"entityCode\":\"MU-002\",\"entryPoint\":\"categories\",\"serviceLabelEn\":\"Pay Public Parking Fees\",\"serviceLabelAR\":\"دفع رسوم المواقف العامة\"},\"statusCode\":200}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔥 FCM Push Notification",
+      "item": [
+        {
+          "name": "Send Push — PAY_ALL (notif 100)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Push sent', () => { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) console.log('✅ Message ID:', pm.response.json().name);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "https://fcm.googleapis.com/v1/projects/{{fcmProjectId}}/messages:send",
+              "protocol": "https",
+              "host": ["fcm.googleapis.com"],
+              "path": ["v1", "projects", "{{fcmProjectId}}", "messages:send"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": {\n    \"token\": \"{{deviceToken}}\",\n    \"notification\": {\n      \"title\": \"QA Test Push\",\n      \"body\": \"Tap to open\"\n    },\n    \"data\": {\n      \"pushNotificationId\": \"100\"\n    },\n    \"apns\": {\n      \"payload\": {\n        \"aps\": {\n          \"alert\": { \"title\": \"QA Test Push\", \"body\": \"Tap to open\" },\n          \"sound\": \"default\",\n          \"badge\": 1\n        }\n      }\n    }\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Sends push with pushNotificationId=100 → iOS app calls /notifications/100/app-data → returns PAY_ALL mock"
+          },
+          "response": []
+        },
+        {
+          "name": "Send Push — SERVICE_NAVIGATE (notif 101)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Push sent', () => { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) console.log('✅ Message ID:', pm.response.json().name);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "https://fcm.googleapis.com/v1/projects/{{fcmProjectId}}/messages:send",
+              "protocol": "https",
+              "host": ["fcm.googleapis.com"],
+              "path": ["v1", "projects", "{{fcmProjectId}}", "messages:send"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": {\n    \"token\": \"{{deviceToken}}\",\n    \"notification\": {\n      \"title\": \"QA Test Push\",\n      \"body\": \"Tap to open\"\n    },\n    \"data\": {\n      \"pushNotificationId\": \"101\"\n    },\n    \"apns\": {\n      \"payload\": {\n        \"aps\": {\n          \"alert\": { \"title\": \"QA Test Push\", \"body\": \"Tap to open\" },\n          \"sound\": \"default\",\n          \"badge\": 1\n        }\n      }\n    }\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Sends push with pushNotificationId=101 → iOS app calls /notifications/101/app-data → returns SERVICE_NAVIGATE mock"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "🏥 Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": { "raw": "{{mockServerUrl}}/", "host": ["{{mockServerUrl}}"], "path": [""] }
+      },
+      "response": []
+    }
+  ]
+}
